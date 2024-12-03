@@ -1,0 +1,13 @@
+game_name: "CartPole-v1"
+render: true
+episodes: 1000
+policy_name: "alphazero"
+
+policies:
+  alphazero:
+    n_explore: 200
+    c: 1.5
+    buffer_size: 1000
+    batch_size: 128
+    update_every: 20
+    max_reward: 500

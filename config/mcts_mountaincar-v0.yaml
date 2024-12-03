@@ -1,0 +1,8 @@
+game_name: "MountainCar-v0"
+render: true
+episodes: 100
+policy_name: "mcts"
+
+policies:
+  mcts:
+    n_explore: 500 

@@ -1,0 +1,9 @@
+torch
+fire
+tqdm
+gymnasium
+matplotlib
+pyyaml
+wandb
+imageio[ffmpeg]
+gymnasium[box2d]
