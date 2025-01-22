@@ -77,7 +77,9 @@ INFO:logger:TRAIN: Episode 250/250: Reward: 500.0 loss_v: 0.01322 loss_p: 0.3417
 INFO:logger:TRAIN: Episode 250/250: Reward: 500.0 loss_v: 0.01298 loss_p: 0.33783
 ```
 
+## Resources
 
+https://medium.com/@_michelangelo_/alphazero-for-dummies-5bcc713fc9c6
 
 
 
