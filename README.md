@@ -4,7 +4,7 @@ Code to train different agents, including AlphaZero, on the CartPole-v1 environm
 
 ![wandb training](assets/alphazero-cartpole-v1.png)
 
-![simulation](assets/CartPole-v1_mcts_simulation.mp4)
+![cartpole](assets/cart_pole.gif)
 
 ## Install
 
@@ -57,7 +57,7 @@ AlphaZero-inspired agent combining MCTS and neural networks. This implementation
 
 `python train.py config/mcts_alphazero_cartpole-v1.yaml`
 
-![cartpole](assets/cart_pole.gif)
+![wandb training](assets/alphazero-cartpole-v1.png)
 
 ```
 INFO:logger:PLAY: Episode 1/250: Reward: 34.0
