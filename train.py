@@ -29,12 +29,6 @@ logger = logging.getLogger("logger")
 
 torch.set_default_dtype(torch.float64)
 
-# BUFFER_SIZE = int(1000)   # replay buffer size
-# BATCH_SIZE = 128          # minibatch size
-# UPDATE_EVERY = 1          # how often to update the network
-# MAX_REWARD = 1 # the maximum reward of the current game to scale the values
-# use_value_model = True
-
 
 def load_config(config_file: str) -> Dict:
     with open(config_file, 'r') as file:
@@ -158,10 +152,6 @@ def train(config_file: str) -> None:
                     if step >= len(actions):
                         print("No more actions, increase exploration.")
                         break
-                    # print(actions)
-                    # print(step)
-                    # print(len(actions))
-                    # print(actions[step])
                     action, _ = actions[step]
                 
                 observation, reward, terminated, truncated, _ = env.step(action)
@@ -192,7 +182,7 @@ def train(config_file: str) -> None:
                     "steps_per_episode": step
                 })
 
-            # Training loop
+            # Training loop (only for AlphaZero)
             if policy_name == "alphazero":
                 if (e + 1) % update_every == 0 and len(replay_buffer) > batch_size:
                     n_iter = len(replay_buffer) // batch_size
