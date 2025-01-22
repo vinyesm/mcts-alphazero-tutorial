@@ -1,0 +1,8 @@
+game_name: "CartPole-v1"
+render: true
+episodes: 1
+policy_name: "bfs"
+
+policies:
+  bfs:
+    n_explore: 100_000

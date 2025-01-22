@@ -20,6 +20,7 @@ import wandb
 from tree_search.mcts import Policy_Player_MCTS, Node
 from tree_search.mcts_alphazero import Node as Node_AlphaZero
 from tree_search.mcts_alphazero import Policy_Player_AlphaZero, ReplayBuffer
+from tree_search.bfs import best_first_search
 from model.model import ValueModel, PolicyModel
 
 
@@ -104,8 +105,12 @@ def train(config_file: str) -> None:
             n_explore = policy_params.get("n_explore")
             max_reward = policy_params.get("max_reward", 1)
             c = policy_params.get("c", math.sqrt(2))
+        elif policy_name == "bfs":
+            n_explore = policy_params.get("n_explore", 100)
+            c = policy_params.get("c", 0.0)
 
-        wandb.init(project="mcts_actor_critic", config=config, name=f"{game_name} {policy_name}")
+        if False:
+            wandb.init(project="mcts_actor_critic", config=config, name=f"{game_name} {policy_name}")
 
         rewards = []
         moving_average = []
@@ -114,6 +119,7 @@ def train(config_file: str) -> None:
         frames = []
 
         for e in range(episodes):
+            print(f"Episode {e + 1}/{episodes}")
             step = 0
             observation, _ = env.reset()
             done = False
@@ -124,12 +130,19 @@ def train(config_file: str) -> None:
             new_env = gym.make(env.spec.id)
             new_env.reset()
             new_env.unwrapped.state = deepcopy(env.unwrapped.state)
-            new_env.unwrapped.np_random = rng
+            new_env.unwrapped.np_random = deepcopy(rng)
             if policy_name == "alphazero":
                 mytree = Node_AlphaZero(new_env, None, 0, observation, False, value_model, policy_model, c)
                 obs, ps, p_obs = [], [], []
             elif policy_name == "mcts":
                 mytree = Node(new_env, None, 0, observation, False, c)
+            elif policy_name == "bfs":
+                print(n_explore)
+                actions = best_first_search(new_env, max_steps=n_explore)
+                if actions:
+                    print(f"Found solution with {len(actions)} actions: {actions}")
+                else:
+                    print("No solution found.")
             
             while not done:
                 if policy_name == "random":
@@ -141,16 +154,28 @@ def train(config_file: str) -> None:
                     obs.append(ob)
                     ps.append(p)
                     p_obs.append(p_ob)
+                elif policy_name == "bfs":
+                    if step >= len(actions):
+                        print("No more actions, increase exploration.")
+                        break
+                    # print(actions)
+                    # print(step)
+                    # print(len(actions))
+                    # print(actions[step])
+                    action = actions[step]
                 
                 observation, reward, terminated, truncated, _ = env.step(action)
                 episode_reward += reward
                 done = terminated or truncated
+                print(f"Step {step}: Action: {action}, Reward: {reward}, Done: {done}")
 
-                if done and policy_name == "alphazero":
-                    for i in range(len(obs)):
-                        replay_buffer.add(obs[i], episode_reward.item(), p_obs[i], ps[i])
+                if done:
+                    if policy_name == "alphazero":
+                        for i in range(len(obs)):
+                            replay_buffer.add(obs[i], episode_reward.item(), p_obs[i], ps[i])
                     new_env.close()
                     break
+
 
                 step += 1
                 if render:
@@ -160,16 +185,18 @@ def train(config_file: str) -> None:
             rewards.append(episode_reward.item())
             moving_average.append(np.mean(rewards[-100:]))
             logger.info(f"PLAY: Episode {e + 1}/{episodes}: Reward: {episode_reward}")
-            wandb.log({
-                "episode_reward": episode_reward.item(),
-                "moving_average": moving_average[-1],
-                "steps_per_episode": step
-            })
+            if False:
+                wandb.log({
+                    "episode_reward": episode_reward.item(),
+                    "moving_average": moving_average[-1],
+                    "steps_per_episode": step
+                })
 
             # Training loop
             if policy_name == "alphazero":
                 if (e + 1) % update_every == 0 and len(replay_buffer) > batch_size:
-                    for i in range(1):
+                    n_iter = len(replay_buffer) // batch_size
+                    for i in range(n_iter):
                         experiences = replay_buffer.sample()
                         obs, r, p_obs, ps = zip(*experiences)
                         obs = np.array(obs)
@@ -183,34 +210,35 @@ def train(config_file: str) -> None:
                         value_optimizer.step()
                         v_losses.append(loss_v.item())
                 
-                    for name, param in value_model.named_parameters():
-                        if param.grad is not None:
-                            wandb.log({f"gradient_norm_{name}": param.grad.norm().item()})
+                        for name, param in value_model.named_parameters():
+                            if param.grad is not None:
+                                wandb.log({f"gradient_norm_{name}": param.grad.norm().item()})
 
-                    # Update Policy Model
-                    p_obs = torch.tensor(np.array(p_obs), dtype=torch.float64)
-                    ps = torch.tensor(np.array(ps), dtype=torch.float64)
-                    loss_p = nn.CrossEntropyLoss()(policy_model(p_obs), ps.argmax(dim=-1))
-                    policy_optimizer.zero_grad()
-                    loss_p.backward()
-                    policy_optimizer.step()
-                    p_losses.append(loss_p.item())
+                        # Update Policy Model
+                        p_obs = torch.tensor(np.array(p_obs), dtype=torch.float64)
+                        ps = torch.tensor(np.array(ps), dtype=torch.float64)
+                        loss_p = nn.CrossEntropyLoss()(policy_model(p_obs), ps.argmax(dim=-1))
+                        policy_optimizer.zero_grad()
+                        loss_p.backward()
+                        policy_optimizer.step()
+                        p_losses.append(loss_p.item())
 
-                    logger.info(f"TRAIN: Episode {e + 1}/{episodes}: Reward: {episode_reward} loss_v: {loss_v:0.5f} loss_p: {loss_p:0.5f}")
-                    wandb.log({
-                        "value_loss": loss_v.item(),
-                        "policy_loss": loss_p.item()
-                    })
+                        logger.info(f"TRAIN: Episode {e + 1}/{episodes}: Reward: {episode_reward} loss_v: {loss_v:0.5f} loss_p: {loss_p:0.5f}")
+                        wandb.log({
+                            "value_loss": loss_v.item(),
+                            "policy_loss": loss_p.item()
+                        })
 
         save_plot(rewards, moving_average, f'{game_name}_{policy_name}_rewards.png')
         save_video(frames, filename=f'{game_name}_{policy_name}_simulation.mp4')
 
     # Log final results to W&B
-    wandb.log({
-        "final_rewards_plot": wandb.Image(f'{game_name}_{policy_name}_rewards.png'),
-        "final_video": wandb.Video(f'{game_name}_{policy_name}_simulation.mp4', fps=30, format="mp4")
-    })
-    wandb.finish()
+    if False:
+        wandb.log({
+            "final_rewards_plot": wandb.Image(f'{game_name}_{policy_name}_rewards.png'),
+            "final_video": wandb.Video(f'{game_name}_{policy_name}_simulation.mp4', fps=30, format="mp4")
+        })
+        wandb.finish()
 
 if __name__ == "__main__":
     fire.Fire(train)
