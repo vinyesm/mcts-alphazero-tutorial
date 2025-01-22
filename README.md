@@ -57,7 +57,7 @@ AlphaZero-inspired agent combining MCTS and neural networks. This implementation
 
 `python train.py config/mcts_alphazero_cartpole-v1.yaml`
 
-![Alt text](assets/alphazero-cartpole-v1.png)
+![cartpole](assets/cart_pole.gif)
 
 ```
 INFO:logger:PLAY: Episode 1/250: Reward: 34.0
