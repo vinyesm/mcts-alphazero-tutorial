@@ -1,4 +1,4 @@
 game_name: "CartPole-v1"
 render: true
-episodes: 1
+episodes: 100
 policy_name: "random"

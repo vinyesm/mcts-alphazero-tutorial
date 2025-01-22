@@ -74,6 +74,7 @@ def train(config_file: str) -> None:
     render = config.get('render')
     episodes = config.get('episodes')
     policy_name = config.get('policy_name', 'random')
+    wandb_logging = config.get('wandb_logging', True)
     policy_params = get_policy_params(config)
 
     # Initialize environment
@@ -103,7 +104,7 @@ def train(config_file: str) -> None:
             n_explore = policy_params.get("n_explore", 100)
             c = policy_params.get("c", 0.0)
 
-        if False:
+        if wandb_logging:
             wandb.init(project="mcts_actor_critic", config=config, name=f"{game_name} {policy_name}")
 
         rewards = []
@@ -157,7 +158,7 @@ def train(config_file: str) -> None:
                 observation, reward, terminated, truncated, _ = env.step(action)
                 episode_reward += reward
                 done = terminated or truncated
-                print(f"Step {step}: Action: {action}, Reward: {reward}, Done: {done}")
+                # print(f"Step {step}: Action: {action}, Reward: {reward}, Done: {done}")
 
                 if done:
                     if policy_name == "alphazero":
@@ -175,11 +176,16 @@ def train(config_file: str) -> None:
             rewards.append(episode_reward.item())
             moving_average.append(np.mean(rewards[-100:]))
             logger.info(f"PLAY: Episode {e + 1}/{episodes}: Reward: {episode_reward}")
-            if False:
+            logger.info(f" \n \
+            episode_reward: {episode_reward.item()}\n \
+            moving_average: {moving_average[-1]}\n \
+            steps_per_episode: {step + 1} \
+            ")
+            if wandb_logging:
                 wandb.log({
                     "episode_reward": episode_reward.item(),
                     "moving_average": moving_average[-1],
-                    "steps_per_episode": step
+                    "steps_per_episode": step + 1
                 })
 
             # Training loop (only for AlphaZero)
@@ -199,10 +205,11 @@ def train(config_file: str) -> None:
                         loss_v.backward()
                         value_optimizer.step()
                         v_losses.append(loss_v.item())
-                
-                        for name, param in value_model.named_parameters():
-                            if param.grad is not None:
-                                wandb.log({f"gradient_norm_{name}": param.grad.norm().item()})
+
+                        if wandb_logging:
+                            for name, param in value_model.named_parameters():
+                                if param.grad is not None:
+                                    wandb.log({f"gradient_norm_{name}": param.grad.norm().item()})
 
                         # Update Policy Model
                         p_obs = torch.tensor(np.array(p_obs), dtype=torch.float64)
@@ -214,16 +221,17 @@ def train(config_file: str) -> None:
                         p_losses.append(loss_p.item())
 
                         logger.info(f"TRAIN: Episode {e + 1}/{episodes}: Reward: {episode_reward} loss_v: {loss_v:0.5f} loss_p: {loss_p:0.5f}")
-                        wandb.log({
-                            "value_loss": loss_v.item(),
-                            "policy_loss": loss_p.item()
-                        })
+                        if wandb_logging:
+                            wandb.log({
+                                "value_loss": loss_v.item(),
+                                "policy_loss": loss_p.item()
+                            })
 
         save_plot(rewards, moving_average, f'{game_name}_{policy_name}_rewards.png')
         save_video(frames, filename=f'{game_name}_{policy_name}_simulation.mp4')
 
     # Log final results to W&B
-    if False:
+    if wandb_logging:
         wandb.log({
             "final_rewards_plot": wandb.Image(f'{game_name}_{policy_name}_rewards.png'),
             "final_video": wandb.Video(f'{game_name}_{policy_name}_simulation.mp4', fps=30, format="mp4")
