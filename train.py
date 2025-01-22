@@ -140,7 +140,7 @@ def train(config_file: str) -> None:
                 print(n_explore)
                 actions = best_first_search(new_env, max_steps=n_explore)
                 if actions:
-                    print(f"Found solution with {len(actions)} actions: {actions}")
+                    print(f"Found solution with {len(actions)} actions.")
                 else:
                     print("No solution found.")
             
@@ -162,7 +162,7 @@ def train(config_file: str) -> None:
                     # print(step)
                     # print(len(actions))
                     # print(actions[step])
-                    action = actions[step]
+                    action, _ = actions[step]
                 
                 observation, reward, terminated, truncated, _ = env.step(action)
                 episode_reward += reward

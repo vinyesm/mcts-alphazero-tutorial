@@ -5,4 +5,4 @@ policy_name: "bfs"
 
 policies:
   bfs:
-    n_explore: 100_000
+    n_explore: 10_000_000

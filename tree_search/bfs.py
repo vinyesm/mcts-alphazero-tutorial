@@ -59,7 +59,6 @@ def best_first_search(env, max_steps=200):
     # initial_state, _ = env.reset()
     initial_state = deepcopy(env.unwrapped.state)
     initial_rng = deepcopy(env.unwrapped.np_random)
-    print(f"bfs initial state: {env.unwrapped.state}")
     root = Node(
         initial_state, 
         None, 
@@ -87,7 +86,6 @@ def best_first_search(env, max_steps=200):
 
         # Reconstruct the current path
         current_path = current_node.get_path()
-        # print(f"current_path: {len(current_path)}, {current_path}")
 
         # If the node is terminal, skip further exploration
         if current_node.terminated:
@@ -103,24 +101,13 @@ def best_first_search(env, max_steps=200):
             longest_path = current_path
             print(f"Step: {steps}, Longest path: {len(longest_path)}")
 
-
         # Generate child nodes by simulating actions (0 or 1)
         for action in [0, 1]:
-            # Save the current environment state
-            env.reset()
-            # print(f"Restoring state: {current_node.state}")
-            # print(f"Restoring rng: {current_node.rng}")
             env.unwrapped.state = deepcopy(current_node.state)
             env.unwrapped.np_random = deepcopy(current_node.rng)
             setattr(env, "_elapsed_steps", current_node.elapsed_steps)
-            # step_count = getattr(env, "_elapsed_steps", 0)
-            # print(f"Step count: {step_count}")
-            # print(f"State after restoration: {env.unwrapped.state}")
-            # print(f"rng after restoration: {env.unwrapped.np_random}")
 
-            # Perform the action and observe the new state
             new_state, _, terminated, truncated, _ = env.step(action)
-            # print(f"new_state: {new_state},  terminated: {terminated}, truncated: {truncated}")
 
             # Simplified state representation for the visited set
             state_tuple = tuple(round(s, 6) for s in new_state)  # Higher precision
@@ -145,59 +132,62 @@ def best_first_search(env, max_steps=200):
     return longest_path
 
 
-def replay_solution(env, init_state, rng, actions, render=True, delay=0.05):
-    """
-    Replay the solution to verify its correctness.
+# def replay_solution(env, init_state, rng, actions, render=True, delay=0.05):
+#     """
+#     Replay the solution to verify its correctness.
 
-    Args:
-        env: Gym environment for CartPole.
-        actions: List of actions to replay.
-        render: Whether to render the environment.
-        delay: Delay between actions for visualization.
-    """
-    env.reset()
-    env.unwrapped.state = init_state
-    env.unwrapped.np_random = rng
-    total_reward = 0
+#     Args:
+#         env: Gym environment for CartPole.
+#         actions: List of actions to replay.
+#         render: Whether to render the environment.
+#         delay: Delay between actions for visualization.
+#     """
+#     env.reset()
+#     env.unwrapped.state = init_state
+#     env.unwrapped.np_random = rng
+#     # print(f"Restored RNG state: {env.unwrapped.np_random.bit_generator.state}")
+#     total_reward = 0
 
-    for i, res in enumerate(actions):
-        action, bfs_state = res
-        if render:
-            env.render()
-        state, reward, terminated, truncated, _ = env.step(action)
-        total_reward += reward
-        print(f"Step {i + 1}: Action: {action}, State: {state}, bfs_state: {bfs_state}, Reward: {reward}")
+#     for i, res in enumerate(actions):
+#         action, bfs_state = res
+#         if render:
+#             env.render()
+#         state, reward, terminated, truncated, _ = env.step(action)
+#         print(f"state type: {type(state[0])}")
+#         total_reward += reward
+#         print(f"Step {i + 1}: Action: {action}, State: {state}, BFS_State: {bfs_state}, Reward: {reward}")
 
-        if terminated or truncated:
-            print(f"Episode ended at step {i + 1}. Total reward: {total_reward}")
-            break
+#         if terminated or truncated:
+#             print(f"Episode ended at step {i + 1}. Total reward: {total_reward}")
+#             break
 
-        time.sleep(delay)
+#         time.sleep(delay)
 
-    if not (terminated or truncated):
-        print(f"Solution executed successfully for all {len(actions)} steps.")
-        print(f"Total reward: {total_reward}")
+#     if not (terminated or truncated):
+#         print(f"Solution executed successfully for all {len(actions)} steps.")
+#         print(f"Total reward: {total_reward}")
 
-    env.close()
+#     env.close()
 
+# if __name__ == "__main__":
+#     # Create the CartPole environment and wrap it with CloneableEnv
+#     env = gym.make("CartPole-v1", render_mode="rgb_array")
+#     env.reset()
+#     env.unwrapped.state = np.array(env.unwrapped.state, dtype=np.float32)
+#     init_state = deepcopy(env.unwrapped.state)
+#     rng = deepcopy(env.unwrapped.np_random)
+#     # print(f"initial state: {env.unwrapped.state}")
+#     # print(f"Restored RNG state: {env.unwrapped.np_random.bit_generator.state}")
 
-if __name__ == "__main__":
-    # Create the CartPole environment and wrap it with CloneableEnv
-    env = gym.make("CartPole-v1", render_mode="rgb_array")
-    env.unwrapped.state = np.array(env.unwrapped.state)
-    env.reset()
-    init_state = deepcopy(env.unwrapped.state)
-    rng = deepcopy(env.unwrapped.np_random)
-    print(f"initial state: {env.unwrapped.state}")
+#     # Perform Best-First Search
+#     actions = best_first_search(env, max_steps=100)
+#     replay_solution(env, init_state, rng, actions, render=False)
 
-    # Perform Best-First Search
-    actions = best_first_search(env, max_steps=1_000_000)
-
-    # Display the results
-    if actions:
-        # print(f"Found solution with {len(actions)} actions: {actions}")
-        print(f"Found solution with {len(actions)} actions.")
-        print("Replaying solution...")
-        replay_solution(env, init_state, rng, actions, render=False)
-    else:
-        print("No solution found.")
+#     # Display the results
+#     if actions:
+#         # print(f"Found solution with {len(actions)} actions: {actions}")
+#         print(f"Found solution with {len(actions)} actions.")
+#         print("Replaying solution...")
+#         replay_solution(env, init_state, rng, actions, render=False)
+#     else:
+#         print("No solution found.")
