@@ -2,9 +2,11 @@
 
 Code to train different agents, including AlphaZero, on the CartPole-v1 environment.
 
-![wandb training](assets/alphazero-cartpole-v1.png)
+<div align="center">
+  <img src="assets/cart_pole.gif" alt="CartPole Simulation" width="150px">
+</div>
 
-![cartpole](assets/cart_pole.gif)
+![wandb training](assets/alphazero-cartpole-v1.png)
 
 ## Install
 
