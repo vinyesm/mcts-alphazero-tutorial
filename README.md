@@ -25,7 +25,10 @@ pip install -r requirements.txt
 ### Random agent:
 
 A random agent that choses action 0 or 1 randomly at each step. Expect poor performance, an average reward of 24 per episode (out of 500 maximum).
-`python train.py config/random_cartpole-v1.yaml`
+
+```
+python train.py config/random_cartpole-v1.yaml
+```
 
 ```
 wandb: Run summary:
@@ -38,13 +41,17 @@ wandb: steps_per_episode 24
 
 A heuristic-driven approach that uses a priority queue to explore states, prioritizing those with the lowest cost (e.g., minimizing pole angle and angular velocity in CartPole). This ensures the most promising paths are evaluated first for efficient exploration.
 
-`python train.py config/bfs_cartpole-v1.yaml`
+```
+python train.py config/bfs_cartpole-v1.yaml
+```
 
 ### Monte Carlo Tree Search:
 
 MCTS uses a tree structure where nodes represent states and edges represent actions. It iteratively explores the tree by selecting actions that balance exploration and exploitation (using UCB scores), simulating random rollouts from leaf nodes, and backpropagating the resulting rewards to refine statistics, enabling the selection of the most promising action for the next step..
 
-`python train.py config/mcts_cartpole-v1.yaml`
+```
+python train.py config/mcts_cartpole-v1.yaml
+```
 
 ```
 wandb: Run summary:
@@ -57,7 +64,9 @@ wandb: steps_per_episode 500
 
 AlphaZero-inspired agent combining MCTS and neural networks. This implementation combines Monte Carlo Tree Search (MCTS) with neural networks for policy and value estimation, enabling the agent to efficiently search and learn in complex state spaces. The neural network guides the search by predicting policy probabilities and state values. This approach needs to train a policy and a value network and progressively during training. It collects data during `PLAY`, then goes on `TRAIN` mode. The training takes 2h in an RTX4090 (can probably be optimized).
 
-`python train.py config/mcts_alphazero_cartpole-v1.yaml`
+```
+python train.py config/mcts_alphazero_cartpole-v1.yaml
+```
 
 ![wandb training](assets/alphazero-cartpole-v1.png)
 
