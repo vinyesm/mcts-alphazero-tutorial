@@ -2,16 +2,19 @@ import heapq
 import gymnasium as gym
 import time
 from copy import deepcopy
+import numpy as np
 
 
 class Node:
-    def __init__(self, state, action, parent, cost, done, rng=None):
+    def __init__(self, state, action, parent, cost, terminated, truncated, rng=None, elapsed_steps=0):
         self.state = state
         self.action = action
         self.parent = parent
         self.cost = cost
-        self.done = done
+        self.terminated = terminated
+        self.truncated = truncated
         self.rng = deepcopy(rng)  # Save the RNG state
+        self.elapsed_steps = elapsed_steps  # Save the elapsed steps
 
 
     def heuristic(self):
@@ -30,7 +33,7 @@ class Node:
         path = []
         current = self
         while current.parent is not None:
-            path.append(current.action)
+            path.append((current.action, current.state))
             current = current.parent
         return path[::-1]  # Reverse to get the correct order
 
@@ -53,9 +56,19 @@ def best_first_search(env, max_steps=200):
     Returns:
         Longest sequence of actions leading to valid states.
     """
-    initial_state, _ = env.reset()
+    # initial_state, _ = env.reset()
+    initial_state = deepcopy(env.unwrapped.state)
     initial_rng = deepcopy(env.unwrapped.np_random)
-    root = Node(initial_state, None, None, cost=0.0, done=False, rng=initial_rng)
+    print(f"bfs initial state: {env.unwrapped.state}")
+    root = Node(
+        initial_state, 
+        None, 
+        None, 
+        cost=0.0, 
+        terminated=False, 
+        truncated=False, 
+        rng=initial_rng
+        )
 
     # Priority queue to explore nodes based on their heuristic cost
     priority_queue = []
@@ -66,51 +79,48 @@ def best_first_search(env, max_steps=200):
 
     # Variable to store the longest valid path found
     longest_path = []
+    steps = 0
 
-    while priority_queue and len(visited) < max_steps:
+    while priority_queue and steps < max_steps:
         # Pop the node with the lowest heuristic cost
         _, current_node = heapq.heappop(priority_queue)
 
-        # Restore the environment to the current node's state
-        # env.reset()
-        # env.unwrapped.state = deepcopy(current_node.state)
-        # env.unwrapped.np_random = deepcopy(current_node.rng)
-
         # Reconstruct the current path
         current_path = current_node.get_path()
+        # print(f"current_path: {len(current_path)}, {current_path}")
+
+        # If the node is terminal, skip further exploration
+        if current_node.terminated:
+            print(f"Terminated... exploring next node.")
+            continue
+
+        if current_node.truncated:
+            print(f"Truncated at step {len(current_node.get_path())}")
+            return current_path
 
         # Update the longest path if the current path is longer
         if len(current_path) > len(longest_path):
             longest_path = current_path
-            print(f"Step: {len(visited)}, Longest path: {len(longest_path)}")
+            print(f"Step: {steps}, Longest path: {len(longest_path)}")
 
-        # If the node is terminal, skip further exploration
-        if current_node.done:
-            continue
 
         # Generate child nodes by simulating actions (0 or 1)
         for action in [0, 1]:
             # Save the current environment state
             env.reset()
+            # print(f"Restoring state: {current_node.state}")
+            # print(f"Restoring rng: {current_node.rng}")
             env.unwrapped.state = deepcopy(current_node.state)
             env.unwrapped.np_random = deepcopy(current_node.rng)
-            # rng = deepcopy(env.unwrapped.np_random)
-            # state = deepcopy(env.unwrapped.state)
+            setattr(env, "_elapsed_steps", current_node.elapsed_steps)
+            # step_count = getattr(env, "_elapsed_steps", 0)
+            # print(f"Step count: {step_count}")
+            # print(f"State after restoration: {env.unwrapped.state}")
+            # print(f"rng after restoration: {env.unwrapped.np_random}")
 
             # Perform the action and observe the new state
             new_state, _, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
-            # print(f"Step: {len(visited)}, Action: {action}, New state: {new_state}, Done: {done}")
-            # print(f"current path {current_path}")
-            # print(f"Step: {len(visited)}, Action: {action}, New state: {new_state}, Done: {done}")
-            # print(f"Cart Position: {new_state[0]}, Pole Angle: {new_state[2]}")
-
-            # Restore the environment state after the action
-            # env.state = state
-            # env.unwrapped.np_random = rng
-
-            if done:
-                print("DONE is reached!!!")
+            # print(f"new_state: {new_state},  terminated: {terminated}, truncated: {truncated}")
 
             # Simplified state representation for the visited set
             state_tuple = tuple(round(s, 6) for s in new_state)  # Higher precision
@@ -118,13 +128,24 @@ def best_first_search(env, max_steps=200):
                 visited.add(state_tuple)
                 # Add the child node to the priority queue
                 cost = abs(new_state[0]) + abs(new_state[2])  # Cart position + pole angle
-                child_node = Node(new_state, action, current_node, cost, done, rng=deepcopy(env.unwrapped.np_random))
+                # cost = 0
+                child_node = Node(
+                    new_state, 
+                    action, 
+                    current_node, 
+                    cost, 
+                    terminated, 
+                    truncated,
+                    rng=deepcopy(env.unwrapped.np_random),
+                    elapsed_steps=current_node.elapsed_steps + 1,
+                    )
                 heapq.heappush(priority_queue, (cost, child_node))
+        steps += 1
 
     return longest_path
 
 
-def replay_solution(env, actions, render=True, delay=0.05):
+def replay_solution(env, init_state, rng, actions, render=True, delay=0.05):
     """
     Replay the solution to verify its correctness.
 
@@ -134,14 +155,18 @@ def replay_solution(env, actions, render=True, delay=0.05):
         render: Whether to render the environment.
         delay: Delay between actions for visualization.
     """
-    state, _ = env.reset()
+    env.reset()
+    env.unwrapped.state = init_state
+    env.unwrapped.np_random = rng
     total_reward = 0
 
-    for i, action in enumerate(actions):
+    for i, res in enumerate(actions):
+        action, bfs_state = res
         if render:
             env.render()
         state, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
+        print(f"Step {i + 1}: Action: {action}, State: {state}, bfs_state: {bfs_state}, Reward: {reward}")
 
         if terminated or truncated:
             print(f"Episode ended at step {i + 1}. Total reward: {total_reward}")
@@ -158,16 +183,21 @@ def replay_solution(env, actions, render=True, delay=0.05):
 
 if __name__ == "__main__":
     # Create the CartPole environment and wrap it with CloneableEnv
-    base_env = gym.make("CartPole-v1", render_mode="rgb_array")
-    env = base_env
+    env = gym.make("CartPole-v1", render_mode="rgb_array")
+    env.unwrapped.state = np.array(env.unwrapped.state)
+    env.reset()
+    init_state = deepcopy(env.unwrapped.state)
+    rng = deepcopy(env.unwrapped.np_random)
+    print(f"initial state: {env.unwrapped.state}")
 
     # Perform Best-First Search
-    actions = best_first_search(env, max_steps=5000)
+    actions = best_first_search(env, max_steps=1_000_000)
 
     # Display the results
     if actions:
-        print(f"Found solution with {len(actions)} actions: {actions}")
+        # print(f"Found solution with {len(actions)} actions: {actions}")
+        print(f"Found solution with {len(actions)} actions.")
         print("Replaying solution...")
-        replay_solution(env, actions, render=False)
+        replay_solution(env, init_state, rng, actions, render=False)
     else:
         print("No solution found.")
